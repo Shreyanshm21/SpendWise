@@ -1,9 +1,13 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import AuthLayout from "../../components/Layouts/AuthLayout";
 import { Link, useNavigate } from "react-router-dom";
 import Input from "../../components/Inputs/input";
 import { validateEmail } from "../../utils/helper";
 import ProfilePhotoSelector from "../../components/Inputs/ProfilePhotoSelector";
+import axiosInstance from "../../utils/axiosinstance";
+import { API_PATHS } from "../../utils/apiPath";
+import { UserContext } from "../../context/userContext";
+import uploadImage from "../../utils/uploadImage";
 
 const SignUp = () => {
     const [profilePic, setProfilePic] = useState(null);
@@ -13,31 +17,61 @@ const SignUp = () => {
     const [error, setError] = useState(null);
 
     const navigate = useNavigate();
+    const { updateUser } = useContext(UserContext);
 
     const handleSignUp = async (e) => {
-      e.preventDefault()
+        e.preventDefault();
+
+        let profileImageURL = "";
+        if (!fullName) {
+            setError("Please Enter your name");
+            return;
+        }
+
+        if (!validateEmail(email)) {
+            setError("Please enter a valid email address");
+            return;
+        }
+
+        if (!password) {
+            setError("Please enter the password");
+            return;
+        }
+
+        setError("");
 
 
-      let profileImageURL =""
-      if(!fullName){
-        setError("Please Enter your name")
-        return;
-      }
 
-      if(!validateEmail(email)){
-        setError("Please enter a valid email address")
-        return;
-      }
+        // SignUp API Call
+        try {
 
-      if(!password){
-        setError("Please enter the password")
-        return 
-      }
+            if(profilePic){
+                const imageUploadRes = await uploadImage(profilePic);
+                profileImageURL = imageUploadRes.imageUrl || "";
+            }
 
-      setError("")
 
-      // SignUp API Call
+            const response = await axiosInstance.post(API_PATHS.AUTH.REGISTER, {
+                fullName,
+                email,
+                password,
+                profileImageURL
+            });
 
+            const { token, user } = response.data;
+
+            if (token) {
+                localStorage.setItem("token", token);
+                updateUser(user);
+                navigate("/dashboard");
+            }
+        } catch (err) {
+            if (err.response && err.response.data.message) {
+                setError(err.response.data.message);
+            } else {
+                setError("Something went wrong. Please try again");
+            }
+        }
     };
 
     return (
